@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Cliente WebSocket</title>
+</head>
+<body>
+  <h1>Cliente WebSocket</h1>
+  <input type="text" id="userIdInput" placeholder="Seu ID de Usuário">
+  <button onclick="authenticate()">Autenticar</button>
+  <br><br>
+  <input type="text" id="recipientIdInput" placeholder="ID do Destinatário">
+  <input type="text" id="messageInput" placeholder="Digite uma mensagem">
+  <button onclick="sendMessage()">Enviar</button>
+  <ul id="messages"></ul>
+
+  <script>
+    let ws;
+    let userId = '';
+
+    function authenticate() {
+      userId = document.getElementById('userIdInput').value;
+      if (!userId) {
+        alert('Por favor, insira um ID de usuário.');
+        return;
+      }
+
+      ws = new WebSocket('ws://localhost:3000/chat');
+
+      ws.onopen = () => {
+        console.log('Conectado ao servidor WebSocket');
+        ws.send(JSON.stringify({ type: 'authenticate', userId }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const messages = document.getElementById('messages');
+        const li = document.createElement('li');
+        if (data.message) {
+          li.textContent = `Recebido: ${data.message}`;
+        } else if (data.error) {
+          li.textContent = `Erro: ${data.error}`;
+        }
+        messages.appendChild(li);
+      };
+
+      ws.onclose = () => {
+        console.log('Desconectado do servidor WebSocket');
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    }
+
+    function sendMessage() {
+      const recipientId = document.getElementById('recipientIdInput').value;
+      const message = document.getElementById('messageInput').value;
+      if (!recipientId || !message) {
+        alert('Por favor, insira o ID do destinatário e a mensagem.');
+        return;
+      }
+
+      const chatMessage = {
+        type: 'message',
+        to: recipientId,
+        message: message
+      };
+
+      ws.send(JSON.stringify(chatMessage));
+      console.log(`Enviado para ${recipientId}: ${message}`);
+    }
+  </script>
+</body>
+</html>
