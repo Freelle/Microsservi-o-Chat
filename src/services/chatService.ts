@@ -1,5 +1,6 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import UserManager from '../utils/userManager';
+import { publisher, subscriber } from '../utils/reidsClient';
 
 interface ChatMessage {
   to: string;
@@ -12,12 +13,25 @@ class ChatService {
   constructor(server: any) {
     this.wss = new WebSocketServer({ server });
     this.wss.on('connection', this.handleConnection.bind(this));
+
+    subscriber.subscribe('chat_messages', (message) => {
+      try {
+        const data: ChatMessage = JSON.parse(message);
+        this.sendMessageToUser(data.to, data.message);
+      } catch (error) {
+        console.error('Erro ao processar mensagem do Redis:', error);
+      }
+    }).then(() => {
+      console.log("Assinado ao canal 'chat_messages' no Redis");
+    }).catch((err) => {
+      console.error("Erro ao assinar o canal 'chat_messages':", err);
+    });
   }
 
   private handleConnection(ws: WebSocket) {
     console.log('Novo cliente conectado');
 
-    ws.on('message', (data: WebSocket.RawData) => {
+    ws.on('message', async (data: WebSocket.RawData) => {
       try {
         const parsedData = JSON.parse(data.toString());
 
@@ -33,7 +47,7 @@ class ChatService {
           }
         } else if (parsedData.type === 'message') {
           const chatMessage: ChatMessage = parsedData;
-          this.sendMessage(chatMessage.to, chatMessage.message);
+          await publisher.publish('chat_messages', JSON.stringify(chatMessage));
         }
       } catch (error) {
         console.error('Erro ao processar mensagem:', error);
@@ -54,13 +68,13 @@ class ChatService {
     });
   }
 
-  private sendMessage(to: string, message: string) {
-    const recipientWs = UserManager.getUser(to);
+  public sendMessageToUser(userId: string, message: string) {
+    const recipientWs = UserManager.getUser(userId);
     if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
       recipientWs.send(JSON.stringify({ message }));
-      console.log(`Mensagem enviada para ${to}: ${message}`);
+      console.log(`Mensagem enviada para ${userId}: ${message}`);
     } else {
-      console.log(`Usuário ${to} não está conectado.`);
+      console.log(`Usuário ${userId} não está conectado.`);
     }
   }
 }

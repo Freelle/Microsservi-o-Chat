@@ -6,12 +6,18 @@
 </head>
 <body>
   <h1>Cliente WebSocket</h1>
-  <input type="text" id="userIdInput" placeholder="Seu ID de Usuário">
-  <button onclick="authenticate()">Autenticar</button>
-  <br><br>
-  <input type="text" id="recipientIdInput" placeholder="ID do Destinatário">
-  <input type="text" id="messageInput" placeholder="Digite uma mensagem">
-  <button onclick="sendMessage()">Enviar</button>
+  
+  <div>
+    <input type="text" id="userIdInput" placeholder="Seu ID de Usuário">
+    <button onclick="authenticate()">Autenticar</button>
+  </div>
+  
+  <div>
+    <input type="text" id="recipientIdInput" placeholder="ID do Destinatário">
+    <input type="text" id="messageInput" placeholder="Digite uma mensagem">
+    <button onclick="sendMessage()">Enviar</button>
+  </div>
+  
   <ul id="messages"></ul>
 
   <script>
