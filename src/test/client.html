@@ -3,12 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <title>Cliente WebSocket</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #messages {
+      list-style-type: none;
+      padding: 0;
+    }
+    #messages li {
+      padding: 5px;
+      border: 1px solid #ccc;
+      margin-bottom: 5px;
+    }
+  </style>
 </head>
 <body>
   <h1>Cliente WebSocket</h1>
   
   <div>
-    <input type="text" id="userIdInput" placeholder="Seu ID de Usuário">
+    <input type="text" id="tokenInput" placeholder="Seu Token JWT">
     <button onclick="authenticate()">Autenticar</button>
   </div>
   
@@ -17,17 +31,17 @@
     <input type="text" id="messageInput" placeholder="Digite uma mensagem">
     <button onclick="sendMessage()">Enviar</button>
   </div>
-  
+
   <ul id="messages"></ul>
 
   <script>
     let ws;
-    let userId = '';
+    let token = '';
 
     function authenticate() {
-      userId = document.getElementById('userIdInput').value;
-      if (!userId) {
-        alert('Por favor, insira um ID de usuário.');
+      token = document.getElementById('tokenInput').value;
+      if (!token) {
+        alert('Por favor, insira um Token JWT.');
         return;
       }
 
@@ -35,18 +49,21 @@
 
       ws.onopen = () => {
         console.log('Conectado ao servidor WebSocket');
-        ws.send(JSON.stringify({ type: 'authenticate', userId }));
+        ws.send(JSON.stringify({ type: 'authenticate', token }));
       };
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         const messages = document.getElementById('messages');
         const li = document.createElement('li');
+
+        // Verifique se a mensagem contém dados
         if (data.message) {
-          li.textContent = `Recebido: ${data.message}`;
+          li.textContent = `Recebido: ${data.message} (De: ${data.from_user.username})`;
         } else if (data.error) {
           li.textContent = `Erro: ${data.error}`;
         }
+
         messages.appendChild(li);
       };
 
@@ -55,7 +72,7 @@
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('Erro no WebSocket:', error);
       };
     }
 
@@ -67,9 +84,14 @@
         return;
       }
 
+      if (!token) {
+        alert('Você precisa se autenticar primeiro.');
+        return;
+      }
+
       const chatMessage = {
         type: 'message',
-        to: recipientId,
+        to_user_id: parseInt(recipientId),
         message: message
       };
 
