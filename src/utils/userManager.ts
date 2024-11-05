@@ -24,6 +24,10 @@ class UserManager {
   hasUser(userId: string): boolean {
     return this.users.has(userId);
   }
+
+  getAllUsers(): Map<string, WebSocket> {
+    return this.users;
+  }
 }
 
 export default new UserManager();

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frontend Simulado - Chat e Usuários</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #messages {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #messages li {
+            padding: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+        }
+
+        .recebido {
+            background-color: #e0e0ff;
+        }
+
+        .erro {
+            color: red;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <h1>Login</h1>
+    <form id="login-form" onsubmit="fazerLogin(event)">
+        <input type="text" id="username" placeholder="Nome de usuário" required />
+        <input type="password" id="password" placeholder="Senha" required />
+        <button type="submit">Login</button>
+    </form>
+
+    <h1>Lista de Usuários</h1>
+    <button onclick="listarUsuarios()">Carregar Usuários</button>
+    <ul id="usuarios-lista"></ul>
+
+    <h2>Usuários no Chat</h2>
+    <ul id="usuarios-chat"></ul>
+
+    <h2>Enviar Mensagem</h2>
+    <form id="mensagem-form" onsubmit="enviarMensagem(event)">
+        <input type="text" id="destinatario" placeholder="ID do Destinatário" required />
+        <textarea id="mensagem" placeholder="Digite sua mensagem" required></textarea>
+        <button type="submit">Enviar</button>
+    </form>
+
+    <h2>Mensagens Recebidas</h2>
+    <ul id="mensagens-lista"></ul>
+
+    <script>
+        let ws;
+
+        class MessageManager {
+            constructor() {
+                this.messages = [];
+            }
+
+            addMessage(from, message) {
+                this.messages.push({ from, message });
+            }
+
+            getMessages() {
+                return this.messages;
+            }
+        }
+
+        const messageManager = new MessageManager(); 
+
+        function conectarWebSocket() {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                alert("Token não encontrado. Faça login primeiro.");
+                return;
+            }
+
+            ws = new WebSocket("ws://localhost:3000/chat");
+
+            ws.onopen = () => {
+                console.log("Conectado ao servidor WebSocket");
+                ws.send(JSON.stringify({ type: "authenticate", token }));
+                console.log("Token enviado para autenticação:", token);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log("Mensagem recebida do servidor WebSocket:", data);
+                const messagesList = document.getElementById("mensagens-lista");
+                const usuariosChat = document.getElementById("usuarios-chat");
+
+                if (data.type === 'user_list') {
+                    usuariosChat.innerHTML = "";
+                    data.users.forEach((usuario) => {
+                        const li = document.createElement("li");
+                        li.textContent = usuario; 
+                        usuariosChat.appendChild(li);
+                    });
+                } else if (data.message) {
+                    messageManager.addMessage(data.from_user_id, data.message);
+                    const li = document.createElement("li");
+                    li.textContent = `Recebido de ${data.from_user_id}: ${data.message}`; 
+                    li.classList.add("recebido");
+                    messagesList.appendChild(li);
+                    messagesList.scrollTop = messagesList.scrollHeight; 
+                } else if (data.error) {
+                    const li = document.createElement("li");
+                    li.textContent = `Erro: ${data.error}`;
+                    li.classList.add("erro");
+                    messagesList.appendChild(li);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log("Desconectado do servidor WebSocket");
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+            };
+        }
+
+        function fazerLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            axios.post("http://localhost:8000/api/login/", {
+                value: username,
+                password: password,
+            })
+                .then((response) => {
+                    const token = response.data.access;
+                    localStorage.setItem("token", token);
+                    alert("Login bem-sucedido!");
+                    conectarWebSocket();
+                })
+                .catch((error) => {
+                    console.error("Erro ao fazer login:", error);
+                    alert("Erro ao fazer login. Verifique suas credenciais.");
+                });
+        }
+
+        function listarUsuarios() {
+            const token = localStorage.getItem("token");
+
+            axios.get("http://localhost:8000/api/usuarios/", {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+                .then((response) => {
+                    const usuarios = response.data.results;
+                    const lista = document.getElementById("usuarios-lista");
+                    lista.innerHTML = "";
+                    usuarios.forEach((usuario) => {
+                        const li = document.createElement("li");
+                        li.textContent = `ID: ${usuario.id} - Nome: ${usuario.username}`;
+                        lista.appendChild(li);
+                    });
+                })
+                .catch((error) => {
+                    console.error("Erro ao listar usuários:", error);
+                    alert("Erro ao carregar a lista de usuários.");
+                });
+        }
+
+        function enviarMensagem(event) {
+            event.preventDefault();
+            const destinatario = document.getElementById("destinatario").value;
+            const mensagem = document.getElementById("mensagem").value;
+
+            const mensagemData = {
+                type: "message",
+                to_user_id: parseInt(destinatario),
+                message: mensagem
+            };
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(mensagemData));
+                document.getElementById("mensagem").value = "";
+            } else {
+                alert("Conexão WebSocket não está aberta.");
+            }
+        }
+
+        window.onload = () => {
+            if (localStorage.getItem("token")) {
+                conectarWebSocket();
+            }
+        };
+    </script>
+</body>
+
+</html>

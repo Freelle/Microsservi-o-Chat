@@ -57,7 +57,6 @@
         const messages = document.getElementById('messages');
         const li = document.createElement('li');
 
-        // Verifique se a mensagem contém dados
         if (data.message) {
           li.textContent = `Recebido: ${data.message} (De: ${data.from_user.username})`;
         } else if (data.error) {
